@@ -1,0 +1,18 @@
+# Arquivos de configuração e segredos
+.streamlit/secrets.toml
+secrets.toml
+
+# Arquivos gerados pelo Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Arquivos de ambiente virtual
+.env
+venv/
+env/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db

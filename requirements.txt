@@ -1,0 +1,7 @@
+pandas
+numpy
+joblib
+python-binance
+ta
+scikit-learn
+streamlit
