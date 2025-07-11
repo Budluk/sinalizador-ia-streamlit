@@ -1,8 +1,8 @@
-# Arquivos de configuração e segredos
+# Arquivos de configuração e segredos que NUNCA devem ir para o GitHub
 .streamlit/secrets.toml
 secrets.toml
 
-# Arquivos gerados pelo Python
+# Arquivos gerados pelo Python que não são necessários no repositório
 __pycache__/
 *.pyc
 *.pyo

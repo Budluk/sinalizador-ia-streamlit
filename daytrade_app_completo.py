@@ -1,17 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-APLICAÇÃO STREAMLIT - SINALIZADOR DE DAYTRADE COM IA
+APLICAÇÃO STREAMLIT - SINALIZADOR DE DAYTRADE COM IA (VERSÃO CORRIGIDA)
 
 Esta aplicação cria uma interface web para visualizar os sinais de compra/venda
 gerados por um modelo de Machine Learning treinado.
 
-Funcionalidades:
-1. Carrega o modelo de IA e seus metadados.
-2. Conecta-se à API da Binance para obter dados de mercado em tempo real.
-3. Gera as mesmas features usadas no treinamento para os novos dados.
-4. Usa o modelo para prever o próximo movimento de preço (ALTA ou BAIXA).
-5. Exibe a previsão, a confiança do modelo e outras informações úteis num dashboard.
-6. Atualiza automaticamente a cada 60 segundos.
+Alteração:
+- Adicionado tld='com' na conexão com a Binance para evitar erros de restrição geográfica.
 """
 
 # --- Importações ---
@@ -34,7 +29,6 @@ st.set_page_config(
 )
 
 # --- CONSTANTES ---
-# É CRUCIAL que esta lista seja IDÊNTICA à do script de treinamento (optimize_model.py)
 FEATURES_LIST = [
     'retorno', 'media9', 'media21', 'volume', 'volume_ma', 'volume_diff_ma', 'volume_ratio_ma', 'volume_anomalo',
     'range_vela', 'close_pos_pct', 'open_pos_pct', 'body_size', 'body_ratio_range',
@@ -67,7 +61,9 @@ def conectar_cliente_binance():
     try:
         api_key = st.secrets["binance"]["BINANCE_API_KEY"]
         api_secret = st.secrets["binance"]["BINANCE_API_SECRET"]
-        client = BinanceClient(api_key, api_secret)
+        # **CORREÇÃO APLICADA AQUI**
+        # Adicionado tld='com' para especificar o domínio global da API e evitar bloqueios geográficos.
+        client = BinanceClient(api_key, api_secret, tld='com')
         client.get_account_status()
         return client
     except Exception as e:
@@ -88,7 +84,7 @@ def buscar_dados_recentes(_client, simbolo, intervalo, limite=100):
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = pd.to_numeric(df[col], errors='coerce')
 
-        df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
+        df['open_time'] = pd.to_datetime(df[col], unit='ms')
         df.set_index('open_time', inplace=True)
         return df
     except Exception as e:
@@ -104,7 +100,6 @@ def gerar_features(df):
     df_copy = df.copy()
     epsilon = 1e-9
 
-    # Price Action e Médias
     df_copy['retorno'] = df_copy['close'].pct_change()
     df_copy['media9'] = ta.trend.sma_indicator(df_copy['close'], window=9)
     df_copy['media21'] = ta.trend.sma_indicator(df_copy['close'], window=21)
@@ -123,8 +118,6 @@ def gerar_features(df):
     df_copy['lower_wick_ratio'] = df_copy['lower_wick'] / (df_copy['range_vela'] + epsilon)
     df_copy['pressao_compra'] = (df_copy['close'] > df_copy['open']).astype(int)
     df_copy['pressao_venda'] = (df_copy['close'] < df_copy['open']).astype(int)
-    
-    # Indicadores Técnicos
     df_copy['rsi'] = ta.momentum.rsi(df_copy['close'], window=14)
     stoch = ta.momentum.StochasticOscillator(df_copy['high'], df_copy['low'], df_copy['close'], window=14, smooth_window=3)
     df_copy['stoch_k'] = stoch.stoch()
@@ -148,7 +141,6 @@ def gerar_features(df):
 # --- INTERFACE PRINCIPAL ---
 
 def main():
-    # --- Carregamento Inicial ---
     modelo, metadata = carregar_modelo_e_metadata()
     client = conectar_cliente_binance()
 
@@ -156,7 +148,6 @@ def main():
         st.warning("A aplicação não pode iniciar devido a erros de carregamento. Verifique as mensagens acima.")
         return
 
-    # --- Barra Lateral (Sidebar) ---
     with st.sidebar:
         st.image("https://images.unsplash.com/photo-1621417488214-2a6046103b51?q=80&w=2832&auto=format&fit=crop", use_column_width=True)
         st.title("Informações do Modelo")
@@ -170,10 +161,8 @@ def main():
         st.subheader("Parâmetros Otimizados")
         st.json(metadata.get('best_params', {}))
 
-    # --- Dashboard Principal ---
     st.title(f"🤖 Sinalizador IA para {metadata.get('ativo', 'Ativo')}")
 
-    # Layout com colunas para as métricas
     col1, col2, col3 = st.columns(3)
     placeholder_sinal = col1.empty()
     placeholder_confianca = col2.empty()
@@ -181,26 +170,19 @@ def main():
     
     placeholder_status = st.empty()
 
-    # --- Loop de Atualização ---
     while True:
         placeholder_status.info("Buscando novos dados e a gerar previsão...")
 
-        # 1. Buscar dados
         df_raw = buscar_dados_recentes(client, metadata['ativo'], metadata['intervalo'])
         
         if not df_raw.empty:
-            # 2. Gerar features
             df_features = gerar_features(df_raw)
 
             if not df_features.empty:
-                # 3. Preparar a última linha para predição
                 last_row = df_features[FEATURES_LIST].iloc[[-1]]
-                
-                # 4. Fazer a predição
                 predicao = modelo.predict(last_row)[0]
                 probabilidade = modelo.predict_proba(last_row)[0]
 
-                # 5. Atualizar a interface
                 sinal_texto = "🟢 ALTA" if predicao == 1 else "🔴 BAIXA"
                 confianca = probabilidade[1] if predicao == 1 else probabilidade[0]
                 preco_atual = df_raw['close'].iloc[-1]
@@ -212,7 +194,6 @@ def main():
                 with placeholder_preco:
                     st.metric(f"Preço Atual ({metadata['ativo']})", f"${preco_atual:,.4f}")
 
-                # Atualiza o status
                 agora = datetime.datetime.now().strftime("%H:%M:%S")
                 placeholder_status.success(f"Dashboard atualizado às {agora}.")
             
@@ -222,7 +203,6 @@ def main():
         else:
             placeholder_status.error("Falha ao buscar dados da Binance. A tentar novamente em 60 segundos...")
 
-        # 6. Aguardar para a próxima atualização
         time.sleep(60)
 
 if __name__ == "__main__":
