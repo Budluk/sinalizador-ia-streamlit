@@ -1,18 +1,18 @@
-# Arquivos de configuração e segredos que NUNCA devem ir para o GitHub
+# Ficheiros de configuração e segredos que NUNCA devem ir para o GitHub
 .streamlit/secrets.toml
 secrets.toml
 
-# Arquivos gerados pelo Python que não são necessários no repositório
+# Ficheiros gerados pelo Python que não são necessários no repositório
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Arquivos de ambiente virtual
+# Ficheiros de ambiente virtual
 .env
 venv/
 env/
 
-# Arquivos de sistema operacional
+# Ficheiros de sistema operativo
 .DS_Store
 Thumbs.db
